@@ -203,7 +203,6 @@ function pinKey(k) {
     var pin = S.pin;
     call({ action: 'login', token: BOOT.token, initData: BOOT.initData, pin: pin, country: S.country }, function (d) {
       S.sid = d.sid; S.me = d; S.pin = '';
-      try { localStorage.setItem('hr_sid', d.sid); localStorage.setItem('hr_me', JSON.stringify({ name: d.name, role: d.role })); } catch (e) {}
       if (TG && TG.HapticFeedback) TG.HapticFeedback.notificationOccurred('success');
       if (d.data) { S.data = d.data; render(); } else load(render);
     }, function (e) { S.pin = ''; if (TG && TG.HapticFeedback) TG.HapticFeedback.notificationOccurred('error'); renderPin(e); });
@@ -481,14 +480,8 @@ function renderControl(period) {
     try { TG.ready(); TG.expand(); TG.setHeaderColor('#1E272C'); TG.setBackgroundColor('#F4F5F7'); if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (e) {}
   }
   if (BOOT.demo) { call({ action: 'demoLogin' }, function (d) { S.sid = d.sid; S.me = d; load(render); }); return; }
-  // уже входили в последние часы — пробуем без PIN
-  var sid = null, me = null;
-  try { sid = localStorage.getItem('hr_sid'); me = JSON.parse(localStorage.getItem('hr_me') || 'null'); } catch (e) {}
-  if (sid && sid !== 'DEMO') {
-    S.sid = sid; S.me = me;
-    call({ action: 'load', country: S.country }, function (d) { S.data = d; render(); }, function () { S.sid = null; renderPin(); });
-    return;
-  }
+  // PIN спрашиваем при каждом открытии
+  try { localStorage.removeItem('hr_sid'); localStorage.removeItem('hr_me'); } catch (e) {}
   renderPin();
 })();
 </script>
