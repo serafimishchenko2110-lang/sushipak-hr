@@ -482,15 +482,17 @@ function openAdd(city, role) {
     '<input id="adPhone" type="tel" inputmode="numeric" autocomplete="off" maxlength="11" placeholder="123 456 789" oninput="this.value=this.value.replace(/[^0-9 ]/g,\'\')"></div></label>' +
     '<label>Откуда<select id="adSrc">' + SOURCES.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('') + '</select></label>' +
     '<label>Комментарий<textarea id="adNote"></textarea></label>' +
-    '<button class="btn primary" onclick="saveAdd()">Добавить</button><button class="btn" onclick="closeSheet()">Отмена</button>');
+    '<button class="btn primary" onclick="saveAdd(true)">📅 Добавить и назначить собеседование</button>' +
+    '<button class="btn" onclick="saveAdd()">Просто добавить</button><button class="btn" onclick="closeSheet()">Отмена</button>');
 }
-function saveAdd() {
+function saveAdd(withInterview) {
   var digits = $('adPhone').value.replace(/\D/g, '');
   if (digits.length !== 9) return toast('Номер — 9 цифр, без +48 / +420', true);
   var city = $('adCity').value;
   var req = { action: 'add', country: city === 'Praha' ? 'CZ' : 'PL', city: city, role: $('adRole').value, name: $('adName').value.trim(), phone: '+' + $('adCc').value + digits, source: $('adSrc').value, note: $('adNote').value.trim() };
-  if (S.sid === 'DEMO') { closeSheet(); toast('Демо: кандидат добавлен (не сохранено)'); return; }
-  call(req, function (nc) { list().unshift(nc); closeSheet(); toast('Кандидат добавлен'); go({ v: 'card', id: nc.id }); });
+  function done(nc) { list().unshift(nc); closeSheet(); toast('Кандидат добавлен'); go({ v: 'card', id: nc.id }); if (withInterview) setTimeout(openInterview, 250); }
+  if (S.sid === 'DEMO') return done({ id: 'demo' + Date.now(), city: city, cityName: city, code: '', role: req.role, name: req.name, phone: req.phone, status: 'Не обработан', source: req.source, created: Date.now() });
+  call(req, done);
 }
 
 /* ---------- Инструкция ---------- */
