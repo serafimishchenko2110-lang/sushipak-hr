@@ -251,7 +251,7 @@ function renderHome() {
   }).join('');
   var nt = needTotal();
   shell('<div class="hdr"><div class="hrow" style="justify-content:space-between"><div><div class="sub">' + esc(greet()) + (S.me && S.me.name ? ', ' + esc(S.me.name.split(' ')[0]) : '') + '</div><div class="ttl">Кандидаты</div></div>' +
-    '<div class="hrow"><button class="iconbtn dark" aria-label="Инструкция" onclick="go({v:\'help\'})">' + ICON.help + '</button>' + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
+    '<div class="hrow">' + (S.me && S.me.role !== 'руководитель' ? '<button class="iconbtn dark" aria-label="Инструкция" onclick="go({v:\'help\'})">' + ICON.help + '</button>' : '') + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
     '<button class="iconbtn dark" aria-label="Обновить" onclick="load(render)">' + ICON.refresh + '</button></div></div>' +
     '<div class="stats"><button class="stat" onclick="go({v:\'list\',mode:\'new\'})"><b>' + nNew + '</b><span>новых</span></button>' +
     '<button class="stat" onclick="go({v:\'list\',mode:\'cbToday\'})"><b style="color:#FFB74D">' + nCb + '</b><span>перезвонить сегодня</span></button>' +
@@ -471,64 +471,57 @@ function saveResult() {
 }
 
 function openAdd(city, role) {
-  var cities = CITIES[S.country].slice();
-  list().forEach(function (c) { if (c.city && cities.indexOf(c.city) === -1) cities.push(c.city); });
+  var cities = CITIES.PL.concat(CITIES.CZ);
   var cityVal = '';
   if (city) list().forEach(function (c) { if (c.cityName === city) cityVal = c.city; });
   sheet('<h3>Новый кандидат</h3><div class="note" style="padding:0">Кто позвонил сам или откликнулся не через форму. Запишется в лист «OLX/Телефон».</div>' +
-    '<label>Город<select id="adCity">' + cities.map(function (c) { return '<option' + (c === cityVal ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label>' +
+    '<label>Город<select id="adCity" onchange="$(\'adCc\').value=this.value===\'Praha\'?\'420\':\'48\'">' + cities.map(function (c) { return '<option' + (c === cityVal ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label>' +
     '<label>Должность<select id="adRole">' + ROLES.map(function (r) { return '<option' + (r === role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></label>' +
     '<label>Имя<input id="adName" autocomplete="off"></label>' +
-    '<label>Телефон<input id="adPhone" type="tel" autocomplete="off" placeholder="' + (S.country === 'CZ' ? '+420 …' : '+48 …') + '"></label>' +
+    '<label>Телефон<div style="display:flex;gap:8px"><select id="adCc" style="width:104px;flex-shrink:0"><option value="48"' + (S.country === 'CZ' ? '' : ' selected') + '>🇵🇱 +48</option><option value="420"' + (S.country === 'CZ' ? ' selected' : '') + '>🇨🇿 +420</option></select>' +
+    '<input id="adPhone" type="tel" inputmode="numeric" autocomplete="off" maxlength="11" placeholder="123 456 789" oninput="this.value=this.value.replace(/[^0-9 ]/g,\'\')"></div></label>' +
     '<label>Откуда<select id="adSrc">' + SOURCES.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('') + '</select></label>' +
     '<label>Комментарий<textarea id="adNote"></textarea></label>' +
     '<button class="btn primary" onclick="saveAdd()">Добавить</button><button class="btn" onclick="closeSheet()">Отмена</button>');
 }
 function saveAdd() {
-  var req = { action: 'add', country: S.country, city: $('adCity').value, role: $('adRole').value, name: $('adName').value.trim(), phone: $('adPhone').value.trim(), source: $('adSrc').value, note: $('adNote').value.trim() };
-  if (!req.phone) return toast('Введите телефон', true);
+  var digits = $('adPhone').value.replace(/\D/g, '');
+  if (digits.length !== 9) return toast('Номер — 9 цифр, без +48 / +420', true);
+  var city = $('adCity').value;
+  var req = { action: 'add', country: city === 'Praha' ? 'CZ' : 'PL', city: city, role: $('adRole').value, name: $('adName').value.trim(), phone: '+' + $('adCc').value + digits, source: $('adSrc').value, note: $('adNote').value.trim() };
   if (S.sid === 'DEMO') { closeSheet(); toast('Демо: кандидат добавлен (не сохранено)'); return; }
   call(req, function (nc) { list().unshift(nc); closeSheet(); toast('Кандидат добавлен'); go({ v: 'card', id: nc.id }); });
 }
 
 /* ---------- Инструкция ---------- */
 function renderHelp() {
-  var boss = S.me && (S.me.role === 'руководитель' || S.me.role === 'демо');
   function sec(t, items) {
-    return '<div class="card"><b style="font-size:15px">' + t + '</b>' + items.map(function (i) {
-      return '<div style="display:flex;gap:10px;font-size:14px;line-height:1.45;color:#37474F"><div style="flex-shrink:0;width:22px;text-align:center">' + i[0] + '</div><div>' + i[1] + '</div></div>';
+    return '<div class="card"><b style="font-size:16px">' + t + '</b>' + items.map(function (i) {
+      return '<div style="display:flex;gap:10px;font-size:15px;line-height:1.45;color:#37474F"><div style="flex-shrink:0;width:24px;text-align:center">' + i[0] + '</div><div>' + i[1] + '</div></div>';
     }).join('') + '</div>';
   }
-  var html = sec('Как работать каждый день', [
-    ['1', 'Откройте город, где есть <b>🎯 нужно</b> — они стоят вверху списка.'],
-    ['2', 'Выберите должность: сначала те, где <b>нужно N чел.</b>'],
-    ['3', 'Откройте кандидата → <b>Позвонить</b>. Номер уже набран, остаётся нажать «Вызов».'],
-    ['4', 'После звонка обязательно нажмите кнопку с итогом разговора.']
-  ]) + sec('Кнопки после звонка', [
-    ['📅', '<b>Назначить собеседование</b> — выберите день и время. Событие в календаре Битрикса и задача управляющему города создадутся сами.'],
-    ['⏰', '<b>Перезвонить позже</b> — выберите время, бот напомнит в Telegram.'],
-    ['📵', '<b>Не дозвонилась</b> — кандидат уйдёт в «Перезвонить» на +3 часа (после 17:00 — на завтра 10:00).'],
-    ['🗂', '<b>В резерв</b> — подходит, но сейчас не нужен.'],
-    ['✖️', '<b>Не подходит…</b> — выберите причину и коротко напишите комментарий.']
-  ]) + sec('После собеседования', [
-    ['✅', 'Откройте кандидата во вкладке <b>Собес</b> → <b>Принят на работу</b>, <b>Не пришёл</b> или <b>Отказ</b>.'],
-    ['🔁', 'Статус сам меняется в таблице, событие в Битриксе перекрашивается, задача управляющего закрывается. В ОТЧЁТ НАЙМА попадёт автоматически.']
-  ]) + sec('Что значат плашки', [
-    ['🎯', '<b>нужно N чел.</b> — сколько людей ещё не хватает (потребность минус уже найденные).'],
-    ['🆕', '<b>новые заявки</b> — им ещё никто не звонил.'],
-    ['⏰', '<b>перезвонить</b> — нужно набрать повторно.'],
-    ['📅', '<b>собес</b> — собеседование назначено, ждём результат.'],
-    ['⚪', '<b>набор закрыт / не нужен сейчас</b> — заявки видны, но звонить в первую очередь не нужно.']
-  ]) + sec('Если человек позвонил сам', [
-    ['➕', 'Кнопка <b>«Позвонили сами — добавить»</b> внизу: город, должность, имя, телефон, откуда узнал. Дальше работаете с ним как с обычной заявкой.']
+  var html = sec('Звонок кандидату', [
+    ['1', 'Выберите город, потом должность.'],
+    ['2', 'Нажмите на кандидата.'],
+    ['3', 'Нажмите <b>«Позвонить»</b>. Откроется телефон с номером — нажмите зелёную трубку.'],
+    ['4', 'После разговора вернитесь в приложение и нажмите одну кнопку — что получилось.']
+  ]) + sec('Что нажать после разговора', [
+    ['📅', '<b>Назначить собеседование</b> — договорились о встрече. Выберите день и время. Управляющий получит задачу в Битриксе.'],
+    ['⏰', '<b>Перезвонить позже</b> — просит набрать позже. Выберите время, бот напомнит.'],
+    ['📵', '<b>Не дозвонилась</b> — не взял трубку. Кандидат вернётся в список через 3 часа.'],
+    ['🗂', '<b>В резерв</b> — хороший кандидат, но сейчас не нужен.'],
+    ['✖️', '<b>Не подходит</b> — выберите причину.']
+  ]) + sec('Когда собеседование прошло', [
+    ['✅', 'Вкладка <b>«Собес»</b> → кандидат → <b>Принят на работу</b>, <b>Не пришёл</b> или <b>Отказ / другое</b>.']
+  ]) + sec('Значки в списке', [
+    ['🎯', '<b>нужно 3 чел.</b> — столько людей не хватает. Звоните сюда в первую очередь.'],
+    ['🆕', '<b>новые заявки</b> — им ещё не звонили.'],
+    ['⏰', '<b>перезвонить</b> — пора набрать повторно.'],
+    ['📅', '<b>собес</b> — ждём результат собеседования.'],
+    ['⚪', '<b>набор закрыт</b> — сейчас никого не ищем.']
+  ]) + sec('Человек позвонил сам', [
+    ['➕', 'Внизу кнопка <b>«Позвонили сами — добавить»</b>. Укажите город, должность, имя и 9 цифр номера.']
   ]);
-  if (boss) html += sec('Для руководителя', [
-    ['📊', 'Кнопка <b>Контроль</b> на главном экране: заявки, обработано, собеседования, принято, воронка и города — за день, неделю, месяц.'],
-    ['👤', 'Новый сотрудник пишет боту <b>/start</b> → в таблице «SUSHIPAK HR — настройки приложения», лист «Пользователи»: роль (рекрутер / руководитель), PIN и «Доступ = да». Затем он ещё раз пишет /start.'],
-    ['🚫', 'Закрыть доступ: в той же строке «Доступ = нет».'],
-    ['🎬', 'Показ в офисе без реальных данных: ссылка ' + location.origin + location.pathname + '?demo=1']
-  ]);
-  html += '<div class="note" style="text-align:center">Название в Битриксе: <b>КОД / ДОЛЖНОСТЬ / Имя / телефон</b>, например <b>KRK / SUSHIMASTER / Анна / +48…</b></div>';
   shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div><div class="sub">SUSHIPAK HR</div><div class="ttl">Инструкция</div></div></div></div>' +
     '<div class="wrap">' + html + '</div>');
 }
