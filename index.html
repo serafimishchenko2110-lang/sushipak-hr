@@ -238,14 +238,13 @@ function renderHome() {
   var cities = Object.keys(by).map(function (k) { var c = by[k]; c.need = needCity(c.code); return c; })
     .sort(function (a, b) { return (b.need > 0) - (a.need > 0) || (b.need - a.need) || (b.n * 100 + b.cb * 10 + b.iv) - (a.n * 100 + a.cb * 10 + a.iv) || a.name.localeCompare(b.name); });
   var rows = cities.map(function (c) {
-    var parts = [];
-    if (c.need) parts.push('нужно ' + c.need); 
-    if (c.n) parts.push(c.n + ' новых');
-    if (c.cb) parts.push(c.cb + ' перезвонить');
-    if (c.iv) parts.push(c.iv + ' собес');
-    var sub = c.need ? parts.join(' · ') + (c.n || c.cb || c.iv ? '' : ' · заявок нет') : 'набор закрыт' + (parts.length ? ' · ' + parts.join(' · ') : '');
+    var tags = (c.need ? '<span class="tag red">🎯 нужно ' + c.need + ' чел.</span>' : '<span class="tag">набор закрыт</span>') +
+      (c.n ? '<span class="tag">🆕 ' + c.n + ' ' + plural(c.n, 'новая заявка', 'новые заявки', 'новых заявок') + '</span>' : '') +
+      (c.cb ? '<span class="tag amber">⏰ ' + c.cb + ' перезвонить</span>' : '') +
+      (c.iv ? '<span class="tag green">📅 ' + c.iv + ' собес</span>' : '') +
+      (c.need && !c.n && !c.cb && !c.iv ? '<span class="tag">заявок нет</span>' : '');
     return '<button class="row" style="' + (c.need ? '' : 'opacity:.6') + '" onclick="go({v:\'roles\',city:' + esc(JSON.stringify(c.name)) + ',code:' + esc(JSON.stringify(c.code)) + '})"><div class="code"' + (c.need ? ' style="background:#FDECEE;color:#9B0D23"' : '') + '>' + esc(c.code) + '</div>' +
-      '<div class="grow"><div class="nm">' + esc(c.name) + '</div><div class="mt"' + (c.need ? ' style="color:#9B0D23;font-weight:600"' : '') + '>' + esc(sub) + '</div></div>' +
+      '<div class="grow"><div class="nm">' + esc(c.name) + '</div><div class="tags">' + tags + '</div></div>' +
       (c.n ? '<div class="badge">' + c.n + '</div>' : '') + ICON.chev + '</button>';
   }).join('');
   var nt = needTotal();
@@ -278,9 +277,9 @@ function renderRoles(city) {
   var roles = Object.keys(by).map(function (k) { var r = by[k]; r.need = needFor(code, r.name); return r; })
     .sort(function (a, b) { return (b.need > 0) - (a.need > 0) || b.need - a.need || b.n - a.n || b.cb - a.cb || b.all - a.all; });
   var rows = roles.map(function (r) {
-    var needTag = r.need ? '<span class="tag red">нужно ' + r.need + '</span>' : '<span class="tag">не нужен сейчас</span>';
-    var counts = (r.n ? '<span class="tag amber">' + r.n + ' новых</span>' : '') + (r.cb ? '<span class="tag amber">' + r.cb + ' перезвонить</span>' : '') +
-      (r.iv ? '<span class="tag green">' + r.iv + ' собес</span>' : '') + (!r.all ? '<span class="tag">заявок нет</span>' : (!r.n && !r.cb && !r.iv ? '<span class="tag">всё обработано</span>' : ''));
+    var needTag = r.need ? '<span class="tag red">🎯 нужно ' + r.need + ' чел.</span>' : '<span class="tag">не нужен сейчас</span>';
+    var counts = (r.n ? '<span class="tag">🆕 ' + r.n + ' ' + plural(r.n, 'новая заявка', 'новые заявки', 'новых заявок') + '</span>' : '') + (r.cb ? '<span class="tag amber">⏰ ' + r.cb + ' перезвонить</span>' : '') +
+      (r.iv ? '<span class="tag green">📅 ' + r.iv + ' собес</span>' : '') + (!r.all ? '<span class="tag">заявок нет</span>' : (!r.n && !r.cb && !r.iv ? '<span class="tag">всё обработано</span>' : ''));
     return '<button class="row" style="' + (r.need ? '' : 'opacity:.65') + '" onclick="go({v:\'list\',city:' + esc(JSON.stringify(city)) + ',role:' + esc(JSON.stringify(r.name)) + '})"><div class="grow"><div class="nm" style="font-size:16px">' + esc(r.name) + '</div><div class="tags">' +
       needTag + counts + '</div></div>' + ICON.chev + '</button>';
   }).join('');
