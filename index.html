@@ -422,12 +422,12 @@ function saveCallback() {
   act({ action: 'callback', when: localIso(when), note: $('cbNote').value.trim() }, 'Напомню в ' + dstr(when.getTime()), { status: ST.CALLBACK, callback: when.getTime() });
 }
 
-function openInterview() {
-  var c = curCand(), days = [], d = new Date(); d.setHours(0, 0, 0, 0);
+function openInterview(pc) {
+  var c = pc && pc.pending ? pc : curCand(), days = [], d = new Date(); d.setHours(0, 0, 0, 0);
   var dn = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
   for (var i = 0; i < 10; i++) { var x = new Date(d); x.setDate(d.getDate() + i); days.push(x); }
   var times = []; for (var h = 9; h <= 20; h++) { times.push(pad(h) + ':00'); if (h < 20) times.push(pad(h) + ':30'); }
-  PK = { days: days, times: times, day: new Date().getHours() >= 18 ? 1 : 0, time: '', dn: dn };
+  PK = { days: days, times: times, day: new Date().getHours() >= 18 ? 1 : 0, time: '', dn: dn, pending: c.pending || null };
   sheet('<h3>Собеседование</h3><div class="note" style="padding:0">' + esc(c.name) + ' · ' + esc(c.role) + ' · ' + esc(c.cityName) + '</div>' +
     '<div class="lbl" style="padding-left:0">День</div><div class="pick c5" id="ivDays"></div>' +
     '<div class="lbl" style="padding-left:0">Время</div><div class="pick c4" id="ivTimes"></div>' +
@@ -453,6 +453,7 @@ function slot(t) { var d = new Date(PK.days[PK.day]); d.setHours(Number(t.slice(
 function saveInterview() {
   if (!PK.time) return toast('Выберите время', true);
   var when = slot(PK.time);
+  if (PK.pending) return saveNewWithInterview(PK.pending, when, $('ivNote').value.trim());
   act({ action: 'interview', when: localIso(when), note: $('ivNote').value.trim() }, 'Собеседование назначено, задача отправлена управляющему', { status: ST.INTERVIEW, interview: when.getTime(), callback: 0 });
 }
 
@@ -474,7 +475,7 @@ function openAdd(city, role) {
   var cities = CITIES.PL.concat(CITIES.CZ);
   var cityVal = '';
   if (city) list().forEach(function (c) { if (c.cityName === city) cityVal = c.city; });
-  sheet('<h3>Новый кандидат</h3><div class="note" style="padding:0">Кто позвонил сам или откликнулся не через форму. Запишется в лист «OLX/Телефон».</div>' +
+  sheet('<h3>Новый кандидат</h3><div class="note" style="padding:0">Человек позвонил сам и готов прийти. Сначала данные, на следующем шаге — время собеседования.</div>' +
     '<label>Город<select id="adCity" onchange="$(\'adCc\').value=this.value===\'Praha\'?\'420\':\'48\'">' + cities.map(function (c) { return '<option' + (c === cityVal ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label>' +
     '<label>Должность<select id="adRole">' + ROLES.map(function (r) { return '<option' + (r === role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></label>' +
     '<label>Имя<input id="adName" autocomplete="off"></label>' +
@@ -482,17 +483,30 @@ function openAdd(city, role) {
     '<input id="adPhone" type="tel" inputmode="numeric" autocomplete="off" maxlength="11" placeholder="123 456 789" oninput="this.value=this.value.replace(/[^0-9 ]/g,\'\')"></div></label>' +
     '<label>Откуда<select id="adSrc">' + SOURCES.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('') + '</select></label>' +
     '<label>Комментарий<textarea id="adNote"></textarea></label>' +
-    '<button class="btn primary" onclick="saveAdd(true)">📅 Добавить и назначить собеседование</button>' +
-    '<button class="btn" onclick="saveAdd()">Просто добавить</button><button class="btn" onclick="closeSheet()">Отмена</button>');
+    '<button class="btn primary" onclick="saveAdd()">Далее — выбрать время собеседования</button><button class="btn" onclick="closeSheet()">Отмена</button>');
 }
-function saveAdd(withInterview) {
+var CITY_CODE = { 'Warszawa': 'WAW', 'Wrocław': 'WRO', 'Poznań': 'POZ', 'Kraków': 'KRK', 'Łódź': 'LDZ', 'Katowice': 'KTW', 'Gdańsk': 'GDN', 'Bydgoszcz': 'BDG', 'Lublin': 'LBN', 'Rzeszów': 'RZE', 'Gdynia': 'GDY', 'Białystok': 'BIA', 'Szczecin': 'SZC', 'Toruń': 'TOR', 'Zabrze': 'ZAB', 'Kielce': 'KLC', 'Praha': 'PRG' };
+function saveAdd() {
   var digits = $('adPhone').value.replace(/\D/g, '');
+  if (!$('adName').value.trim()) return toast('Введите имя', true);
   if (digits.length !== 9) return toast('Номер — 9 цифр, без +48 / +420', true);
   var city = $('adCity').value;
   var req = { action: 'add', country: city === 'Praha' ? 'CZ' : 'PL', city: city, role: $('adRole').value, name: $('adName').value.trim(), phone: '+' + $('adCc').value + digits, source: $('adSrc').value, note: $('adNote').value.trim() };
-  function done(nc) { list().unshift(nc); closeSheet(); toast('Кандидат добавлен'); go({ v: 'card', id: nc.id }); if (withInterview) setTimeout(openInterview, 250); }
-  if (S.sid === 'DEMO') return done({ id: 'demo' + Date.now(), city: city, cityName: city, code: '', role: req.role, name: req.name, phone: req.phone, status: 'Не обработан', source: req.source, created: Date.now() });
-  call(req, done);
+  openInterview({ name: req.name, role: req.role, cityName: cityLabel(CITY_CODE[city]) || city, code: CITY_CODE[city] || '', phone: req.phone, pending: req });
+}
+// новый кандидат: записываем в таблицу и сразу ставим собеседование
+function saveNewWithInterview(req, when, note) {
+  var btn = $('ivSave'); if (btn) { btn.disabled = true; btn.textContent = 'Сохраняю…'; }
+  function opened(nc) { list().unshift(nc); closeSheet(); go({ v: 'card', id: nc.id }); }
+  if (S.sid === 'DEMO') { opened({ id: 'demo' + Date.now(), city: req.city, cityName: req.city, code: CITY_CODE[req.city] || '', role: req.role, name: req.name, phone: req.phone, status: ST.INTERVIEW, interview: when.getTime(), source: req.source, created: Date.now() }); return toast('Демо: сохранено (по-настоящему ничего не записано)'); }
+  call(req, function (nc) {
+    call({ action: 'interview', id: nc.id, phone: nc.phone, when: localIso(when), note: note }, function (nc2) {
+      opened(nc2);
+      if (nc2.warn) toast('Сохранено, но ' + nc2.warn, true); else toast('Кандидат добавлен, собеседование назначено');
+    }, function () {
+      opened(nc); toast('Кандидат добавлен, но собеседование не сохранилось — нажмите «Назначить собеседование»', true);
+    });
+  }, function (e) { toast(e, true); if (btn) { btn.disabled = false; drawIv(); } });
 }
 
 /* ---------- Инструкция ---------- */
