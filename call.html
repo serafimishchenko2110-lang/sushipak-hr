@@ -19,12 +19,26 @@ p{color:#B0BEC5;font-size:14px;line-height:1.5;margin:0}
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
     Позвонить
   </a>
-  <p>После звонка закройте эту страницу — вы вернётесь в приложение.</p>
+  <a class="c" id="b" href="tg://resolve?domain=sushipak_hr_bot" style="background:#2C3A41;height:52px;font-size:16px">Вернуться в Telegram</a>
+  <p>После звонка страница закроется сама и вернёт вас в приложение.</p>
 </div>
 <script>
 var num = decodeURIComponent((location.hash || '').slice(1)).replace(/[^\d+]/g, '');
 document.getElementById('n').textContent = num || 'Нет номера';
 document.getElementById('c').href = 'tel:' + num;
+var BOT = 'tg://resolve?domain=sushipak_hr_bot';
+var left = false;
+function backToTelegram() {
+  try { window.close(); } catch (e) {}
+  setTimeout(function () { location.href = BOT; }, 300);
+}
+// ушли на экран вызова → вернулись после звонка → закрываемся и возвращаемся в Telegram
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) left = true;
+  else if (left) backToTelegram();
+});
+window.addEventListener('pageshow', function (e) { if (e.persisted && left) backToTelegram(); });
+document.getElementById('b').addEventListener('click', function (e) { e.preventDefault(); backToTelegram(); });
 if (num) setTimeout(function () { location.href = 'tel:' + num; }, 150);
 </script>
 </body>
