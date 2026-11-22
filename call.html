@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Позвонить</title>
+<style>
+html,body{margin:0;height:100%;background:#1E272C;color:#fff;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.w{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;box-sizing:border-box;text-align:center}
+.n{font-size:28px;font-weight:800;letter-spacing:.5px}
+a.c{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:340px;height:64px;border-radius:18px;background:#2E7D32;color:#fff;text-decoration:none;font-size:20px;font-weight:700}
+p{color:#B0BEC5;font-size:14px;line-height:1.5;margin:0}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="n" id="n"></div>
+  <a class="c" id="c" href="#">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+    Позвонить
+  </a>
+  <p>После звонка закройте эту страницу — вы вернётесь в приложение.</p>
+</div>
+<script>
+var num = decodeURIComponent((location.hash || '').slice(1)).replace(/[^\d+]/g, '');
+document.getElementById('n').textContent = num || 'Нет номера';
+document.getElementById('c').href = 'tel:' + num;
+if (num) setTimeout(function () { location.href = 'tel:' + num; }, 150);
+</script>
+</body>
+</html>

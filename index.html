@@ -316,12 +316,22 @@ function renderCard(id) {
   }
   shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div class="sub">' + esc(c.cityName) + ' · ' + esc(c.role) + '</div></div>' +
     '<div style="padding-left:4px;margin-top:4px"><div style="font-size:26px;font-weight:800">' + esc(c.name || 'Без имени') + '</div><div style="font-size:15px;color:#CFD8DC;margin-top:4px">' + esc(c.phone) + '</div></div>' +
-    '<a class="call" href="' + esc(telHref(c.phone)) + '">' + ICON.phone + 'Позвонить</a>' +
+    '<a class="call" href="' + esc(telHref(c.phone)) + '" onclick="return dial(event)">' + ICON.phone + 'Позвонить</a>' +
     '<button class="copy" onclick="copyPhone()">Скопировать номер</button></div>' +
     '<div class="wrap"><div class="facts">' + facts.map(function (f) { return '<div class="fact"><div class="k">' + esc(f[0]) + '</div><div class="v">' + esc(f[1] || '—') + '</div></div>'; }).join('') + '</div>' +
     actions + '</div>');
 }
 function curCand() { return cand(cur().id); }
+// Telegram не открывает tel: внутри мини-приложения — открываем страницу-переходник во встроенном браузере телефона
+function dial(ev) {
+  var num = telHref(curCand().phone).slice(4);
+  if (TG && TG.openLink && TG.platform && TG.platform !== 'unknown') {
+    if (ev) ev.preventDefault();
+    TG.openLink(location.origin + location.pathname.replace(/[^/]*$/, '') + 'call.html#' + encodeURIComponent(num));
+    return false;
+  }
+  return true;
+}
 function copyPhone() {
   var p = curCand().phone;
   try { navigator.clipboard.writeText(p).then(function () { toast('Номер скопирован'); }, function () { prompt('Номер:', p); }); } catch (e) { prompt('Номер:', p); }
