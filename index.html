@@ -111,6 +111,7 @@ var ICON = {
   chev: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#90A4AE" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   phone: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+  help: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.8"/><path d="M12 17.2h.01"/></svg>',
   chart: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   refresh: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
   user: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>'
@@ -188,6 +189,7 @@ function render() {
   if (html === 'list') return renderList(v);
   if (html === 'card') return renderCard(v.id);
   if (html === 'control') return renderControl(v.period || 'day');
+  if (html === 'help') return renderHelp();
 }
 function shell(inner) { $('app').innerHTML = (S.sid === 'DEMO' ? '<div class="demo">ДЕМО-РЕЖИМ · данные для примера, ничего не сохраняется</div>' : '') + inner; }
 
@@ -249,7 +251,7 @@ function renderHome() {
   }).join('');
   var nt = needTotal();
   shell('<div class="hdr"><div class="hrow" style="justify-content:space-between"><div><div class="sub">' + esc(greet()) + (S.me && S.me.name ? ', ' + esc(S.me.name.split(' ')[0]) : '') + '</div><div class="ttl">Кандидаты</div></div>' +
-    '<div class="hrow">' + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
+    '<div class="hrow"><button class="iconbtn dark" aria-label="Инструкция" onclick="go({v:\'help\'})">' + ICON.help + '</button>' + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
     '<button class="iconbtn dark" aria-label="Обновить" onclick="load(render)">' + ICON.refresh + '</button></div></div>' +
     '<div class="stats"><button class="stat" onclick="go({v:\'list\',mode:\'new\'})"><b>' + nNew + '</b><span>новых</span></button>' +
     '<button class="stat" onclick="go({v:\'list\',mode:\'cbToday\'})"><b style="color:#FFB74D">' + nCb + '</b><span>перезвонить сегодня</span></button>' +
@@ -431,10 +433,11 @@ function openInterview() {
     '<div class="lbl" style="padding-left:0">Время</div><div class="pick c4" id="ivTimes"></div>' +
     '<label>Комментарий для управляющего (необязательно)<textarea id="ivNote" placeholder="Например: есть авто, может с понедельника"></textarea></label>' +
     '<div class="card" style="font-size:13px;color:#37474F;line-height:1.5"><b>После подтверждения автоматически:</b>' +
-    '• событие в календаре Битрикса ' + esc(c.code) + '/' + esc(roleWord(c.role)) + '/…<br>• задача в Битрикс управляющему города<br>• статус в таблице и собеседование в ОТЧЁТЕ НАЙМА</div>' +
+    '• событие в календаре Битрикса <b>' + esc(c.code) + ' / ' + esc(roleCodeC(c.role)) + ' / ' + esc(c.name || 'Кандидат') + ' / ' + esc(telHref(c.phone).slice(4)) + '</b><br>• задача в Битрикс управляющему города<br>• статус в таблице и собеседование в ОТЧЁТЕ НАЙМА</div>' +
     '<button class="btn primary" id="ivSave" onclick="saveInterview()">Выберите время</button><button class="btn" onclick="closeSheet()">Отмена</button>');
   drawIv();
 }
+function roleCodeC(r) { r = String(r || '').toLowerCase(); return /кухн|помощ|стаж/.test(r) ? 'POMOC KUCHENNA' : /суш/.test(r) ? 'SUSHIMASTER' : /кур/.test(r) ? 'KURIER' : /адм/.test(r) ? 'ADMINISTRATOR' : /упак/.test(r) ? 'PAKOWACZ' : /управ/.test(r) ? 'UPR' : r.toUpperCase(); }
 function roleWord(r) { r = String(r || '').toLowerCase(); return /кухн|помощ|стаж/.test(r) ? 'на помощника кухни' : /суш/.test(r) ? 'на сушиста' : /кур/.test(r) ? 'на курьера' : /адм/.test(r) ? 'на администратора' : /упак/.test(r) ? 'на упаковщика' : /управ/.test(r) ? 'на управляющего' : r; }
 function drawIv() {
   $('ivDays').innerHTML = PK.days.map(function (d, i) { return '<button class="opt' + (PK.day === i ? ' on' : '') + '" onclick="PK.day=' + i + ';PK.time=\'\';drawIv()"><small>' + PK.dn[d.getDay()] + '</small>' + d.getDate() + '</button>'; }).join('');
@@ -486,6 +489,48 @@ function saveAdd() {
   if (!req.phone) return toast('Введите телефон', true);
   if (S.sid === 'DEMO') { closeSheet(); toast('Демо: кандидат добавлен (не сохранено)'); return; }
   call(req, function (nc) { list().unshift(nc); closeSheet(); toast('Кандидат добавлен'); go({ v: 'card', id: nc.id }); });
+}
+
+/* ---------- Инструкция ---------- */
+function renderHelp() {
+  var boss = S.me && (S.me.role === 'руководитель' || S.me.role === 'демо');
+  function sec(t, items) {
+    return '<div class="card"><b style="font-size:15px">' + t + '</b>' + items.map(function (i) {
+      return '<div style="display:flex;gap:10px;font-size:14px;line-height:1.45;color:#37474F"><div style="flex-shrink:0;width:22px;text-align:center">' + i[0] + '</div><div>' + i[1] + '</div></div>';
+    }).join('') + '</div>';
+  }
+  var html = sec('Как работать каждый день', [
+    ['1', 'Откройте город, где есть <b>🎯 нужно</b> — они стоят вверху списка.'],
+    ['2', 'Выберите должность: сначала те, где <b>нужно N чел.</b>'],
+    ['3', 'Откройте кандидата → <b>Позвонить</b>. Номер уже набран, остаётся нажать «Вызов».'],
+    ['4', 'После звонка обязательно нажмите кнопку с итогом разговора.']
+  ]) + sec('Кнопки после звонка', [
+    ['📅', '<b>Назначить собеседование</b> — выберите день и время. Событие в календаре Битрикса и задача управляющему города создадутся сами.'],
+    ['⏰', '<b>Перезвонить позже</b> — выберите время, бот напомнит в Telegram.'],
+    ['📵', '<b>Не дозвонилась</b> — кандидат уйдёт в «Перезвонить» на +3 часа (после 17:00 — на завтра 10:00).'],
+    ['🗂', '<b>В резерв</b> — подходит, но сейчас не нужен.'],
+    ['✖️', '<b>Не подходит…</b> — выберите причину и коротко напишите комментарий.']
+  ]) + sec('После собеседования', [
+    ['✅', 'Откройте кандидата во вкладке <b>Собес</b> → <b>Принят на работу</b>, <b>Не пришёл</b> или <b>Отказ</b>.'],
+    ['🔁', 'Статус сам меняется в таблице, событие в Битриксе перекрашивается, задача управляющего закрывается. В ОТЧЁТ НАЙМА попадёт автоматически.']
+  ]) + sec('Что значат плашки', [
+    ['🎯', '<b>нужно N чел.</b> — сколько людей ещё не хватает (потребность минус уже найденные).'],
+    ['🆕', '<b>новые заявки</b> — им ещё никто не звонил.'],
+    ['⏰', '<b>перезвонить</b> — нужно набрать повторно.'],
+    ['📅', '<b>собес</b> — собеседование назначено, ждём результат.'],
+    ['⚪', '<b>набор закрыт / не нужен сейчас</b> — заявки видны, но звонить в первую очередь не нужно.']
+  ]) + sec('Если человек позвонил сам', [
+    ['➕', 'Кнопка <b>«Позвонили сами — добавить»</b> внизу: город, должность, имя, телефон, откуда узнал. Дальше работаете с ним как с обычной заявкой.']
+  ]);
+  if (boss) html += sec('Для руководителя', [
+    ['📊', 'Кнопка <b>Контроль</b> на главном экране: заявки, обработано, собеседования, принято, воронка и города — за день, неделю, месяц.'],
+    ['👤', 'Новый сотрудник пишет боту <b>/start</b> → в таблице «SUSHIPAK HR — настройки приложения», лист «Пользователи»: роль (рекрутер / руководитель), PIN и «Доступ = да». Затем он ещё раз пишет /start.'],
+    ['🚫', 'Закрыть доступ: в той же строке «Доступ = нет».'],
+    ['🎬', 'Показ в офисе без реальных данных: ссылка ' + location.origin + location.pathname + '?demo=1']
+  ]);
+  html += '<div class="note" style="text-align:center">Название в Битриксе: <b>КОД / ДОЛЖНОСТЬ / Имя / телефон</b>, например <b>KRK / SUSHIMASTER / Анна / +48…</b></div>';
+  shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div><div class="sub">SUSHIPAK HR</div><div class="ttl">Инструкция</div></div></div></div>' +
+    '<div class="wrap">' + html + '</div>');
 }
 
 /* ---------- Контроль ---------- */
