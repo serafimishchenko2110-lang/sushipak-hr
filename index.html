@@ -163,6 +163,15 @@ function call(req, ok, fail) {
 function load(cb) { call({ action: 'load', country: S.country }, function (d) { S.data = d; cb && cb(); }); }
 function list() { return (S.data && S.data.list) || []; }
 function cand(id) { return list().filter(function (c) { return c.id === id; })[0]; }
+function needs() { return (S.data && S.data.needs) || {}; }
+function needFor(code, role) {
+  var n = needs()[code] || {};
+  if (/администратор\/управляющий/i.test(role)) return (n['Администратор'] || 0) + (n['Управляющий'] || 0);
+  return n[role] || 0;
+}
+function needCity(code) { var n = needs()[code] || {}, t = 0; for (var k in n) t += n[k] || 0; return t; }
+function needTotal() { var t = 0; for (var c in needs()) t += needCity(c); return t; }
+function cityLabel(code) { return ((S.data && S.data.cityNames) || {})[code] || code; }
 function bucket(c) { return c.status === ST.NEW ? 'new' : c.status === ST.CALLBACK ? 'callback' : c.status === ST.INTERVIEW ? 'interview' : 'done'; }
 function replaceCand(oldId, nc) { var l = list(); for (var i = 0; i < l.length; i++) if (l[i].id === oldId) { l[i] = nc; return; } l.unshift(nc); }
 
@@ -220,41 +229,63 @@ function renderHome() {
     if (b === 'callback') { by[k].cb++; if (c.callback && c.callback <= endOfToday()) nCb++; }
     if (b === 'interview') { by[k].iv++; if (isToday(c.interview)) nIv++; }
   });
-  var cities = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return (b.n * 100 + b.cb * 10 + b.iv) - (a.n * 100 + a.cb * 10 + a.iv) || a.name.localeCompare(b.name); });
+  // города, где нужны люди, но заявок пока нет
+  Object.keys(needs()).forEach(function (code) {
+    if (!needCity(code)) return;
+    var name = cityLabel(code);
+    if (!by[name]) by[name] = { name: name, code: code, n: 0, cb: 0, iv: 0 };
+  });
+  var cities = Object.keys(by).map(function (k) { var c = by[k]; c.need = needCity(c.code); return c; })
+    .sort(function (a, b) { return (b.need > 0) - (a.need > 0) || (b.need - a.need) || (b.n * 100 + b.cb * 10 + b.iv) - (a.n * 100 + a.cb * 10 + a.iv) || a.name.localeCompare(b.name); });
   var rows = cities.map(function (c) {
-    var sub = [c.cb ? c.cb + ' перезвонить' : '', c.iv ? c.iv + ' собес' : ''].filter(Boolean).join(' · ') || (c.n ? 'новые заявки' : 'всё обработано');
-    return '<button class="row" onclick="go({v:\'roles\',city:' + esc(JSON.stringify(c.name)) + '})"><div class="code">' + esc(c.code) + '</div>' +
-      '<div class="grow"><div class="nm">' + esc(c.name) + '</div><div class="mt">' + esc(sub) + '</div></div>' +
+    var parts = [];
+    if (c.need) parts.push('нужно ' + c.need); 
+    if (c.n) parts.push(c.n + ' новых');
+    if (c.cb) parts.push(c.cb + ' перезвонить');
+    if (c.iv) parts.push(c.iv + ' собес');
+    var sub = c.need ? parts.join(' · ') + (c.n || c.cb || c.iv ? '' : ' · заявок нет') : 'набор закрыт' + (parts.length ? ' · ' + parts.join(' · ') : '');
+    return '<button class="row" style="' + (c.need ? '' : 'opacity:.6') + '" onclick="go({v:\'roles\',city:' + esc(JSON.stringify(c.name)) + ',code:' + esc(JSON.stringify(c.code)) + '})"><div class="code"' + (c.need ? ' style="background:#FDECEE;color:#9B0D23"' : '') + '>' + esc(c.code) + '</div>' +
+      '<div class="grow"><div class="nm">' + esc(c.name) + '</div><div class="mt"' + (c.need ? ' style="color:#9B0D23;font-weight:600"' : '') + '>' + esc(sub) + '</div></div>' +
       (c.n ? '<div class="badge">' + c.n + '</div>' : '') + ICON.chev + '</button>';
   }).join('');
+  var nt = needTotal();
   shell('<div class="hdr"><div class="hrow" style="justify-content:space-between"><div><div class="sub">' + esc(greet()) + (S.me && S.me.name ? ', ' + esc(S.me.name.split(' ')[0]) : '') + '</div><div class="ttl">Кандидаты</div></div>' +
     '<div class="hrow">' + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
     '<button class="iconbtn dark" aria-label="Обновить" onclick="load(render)">' + ICON.refresh + '</button></div></div>' +
     '<div class="stats"><button class="stat" onclick="go({v:\'list\',mode:\'new\'})"><b>' + nNew + '</b><span>новых</span></button>' +
     '<button class="stat" onclick="go({v:\'list\',mode:\'cbToday\'})"><b style="color:#FFB74D">' + nCb + '</b><span>перезвонить сегодня</span></button>' +
-    '<button class="stat" onclick="go({v:\'list\',mode:\'ivToday\'})"><b style="color:#81C784">' + nIv + '</b><span>собеседования сегодня</span></button></div></div>' +
+    '<button class="stat" onclick="go({v:\'list\',mode:\'ivToday\'})"><b style="color:#81C784">' + nIv + '</b><span>собеседования сегодня</span></button></div>' +
+    '<div style="margin-top:10px;background:#C8102E;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">🎯 Нужно найти</span><b style="font-size:18px">' + nt + ' ' + plural(nt, 'человек', 'человека', 'человек') + '</b></div></div>' +
     '<div class="seg"><button class="' + (S.country === 'PL' ? 'on' : '') + '" onclick="setCountry(\'PL\')">Польша</button><button class="' + (S.country === 'CZ' ? 'on' : '') + '" onclick="setCountry(\'CZ\')">Чехия</button></div>' +
     '<div class="wrap">' + (rows || '<div class="empty">Заявок за последние 60 дней нет.</div>') + '</div>' +
     '<button class="fab" onclick="openAdd()">' + ICON.plus + 'Позвонили сами — добавить</button>');
 }
+function plural(n, a, b, c) { n = Math.abs(n) % 100; var n1 = n % 10; if (n > 10 && n < 20) return c; if (n1 > 1 && n1 < 5) return b; if (n1 === 1) return a; return c; }
 function greet() { var h = new Date().getHours(); return h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер'; }
 function endOfToday() { var d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); }
 function setCountry(c) { if (S.country === c) return; S.country = c; S.view = ['home']; load(render); }
 
 /* ---------- Должности ---------- */
 function renderRoles(city) {
-  var by = {};
+  var by = {}, code = cur().code;
   list().filter(function (c) { return c.cityName === city; }).forEach(function (c) {
+    code = code || c.code;
     var r = c.role || '—'; by[r] = by[r] || { name: r, n: 0, cb: 0, iv: 0, all: 0 };
     var b = bucket(c); by[r].all++; if (b === 'new') by[r].n++; if (b === 'callback') by[r].cb++; if (b === 'interview') by[r].iv++;
   });
-  var roles = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.n - a.n || b.cb - a.cb || b.all - a.all; });
+  var nd = needs()[code] || {};
+  Object.keys(nd).forEach(function (r) { if (nd[r] > 0 && !by[r]) by[r] = { name: r, n: 0, cb: 0, iv: 0, all: 0 }; });
+  var roles = Object.keys(by).map(function (k) { var r = by[k]; r.need = needFor(code, r.name); return r; })
+    .sort(function (a, b) { return (b.need > 0) - (a.need > 0) || b.need - a.need || b.n - a.n || b.cb - a.cb || b.all - a.all; });
   var rows = roles.map(function (r) {
-    return '<button class="row" onclick="go({v:\'list\',city:' + esc(JSON.stringify(city)) + ',role:' + esc(JSON.stringify(r.name)) + '})"><div class="grow"><div class="nm" style="font-size:16px">' + esc(r.name) + '</div><div class="tags">' +
-      (r.n ? '<span class="tag red">' + r.n + ' новых</span>' : '') + (r.cb ? '<span class="tag amber">' + r.cb + ' перезвонить</span>' : '') +
-      (r.iv ? '<span class="tag green">' + r.iv + ' собес</span>' : '') + (!r.n && !r.cb && !r.iv ? '<span class="tag">всё обработано</span>' : '') + '</div></div>' + ICON.chev + '</button>';
+    var needTag = r.need ? '<span class="tag red">нужно ' + r.need + '</span>' : '<span class="tag">не нужен сейчас</span>';
+    var counts = (r.n ? '<span class="tag amber">' + r.n + ' новых</span>' : '') + (r.cb ? '<span class="tag amber">' + r.cb + ' перезвонить</span>' : '') +
+      (r.iv ? '<span class="tag green">' + r.iv + ' собес</span>' : '') + (!r.all ? '<span class="tag">заявок нет</span>' : (!r.n && !r.cb && !r.iv ? '<span class="tag">всё обработано</span>' : ''));
+    return '<button class="row" style="' + (r.need ? '' : 'opacity:.65') + '" onclick="go({v:\'list\',city:' + esc(JSON.stringify(city)) + ',role:' + esc(JSON.stringify(r.name)) + '})"><div class="grow"><div class="nm" style="font-size:16px">' + esc(r.name) + '</div><div class="tags">' +
+      needTag + counts + '</div></div>' + ICON.chev + '</button>';
   }).join('');
-  shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div><div class="sub">Город</div><div class="ttl">' + esc(city) + '</div></div></div></div>' +
+  var nc = needCity(code);
+  shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div><div class="sub">Город' + (nc ? ' · нужно ' + nc + ' ' + plural(nc, 'человек', 'человека', 'человек') : ' · набор закрыт') + '</div><div class="ttl">' + esc(city) + '</div></div></div></div>' +
     '<div class="wrap"><div class="lbl">Выберите должность</div>' + (rows || '<div class="empty">Нет заявок.</div>') + '</div>' +
     '<button class="fab" onclick="openAdd(' + esc(JSON.stringify(city)) + ')">' + ICON.plus + 'Добавить кандидата</button>');
 }
@@ -268,6 +299,8 @@ function renderList(v) {
   else {
     base = base.filter(function (c) { return c.cityName === v.city && c.role === v.role; });
     title = v.role; sub = v.city;
+    var codeL = (base[0] && base[0].code) || '';
+    if (codeL) { var nn = needFor(codeL, v.role); sub += nn ? ' · нужно ' + nn : ' · сейчас не нужен'; }
     var cnt = { new: 0, callback: 0, interview: 0, all: base.length };
     base.forEach(function (c) { var b = bucket(c); if (cnt[b] !== undefined) cnt[b]++; });
     var t = v.tab || (cnt.new ? 'new' : cnt.callback ? 'callback' : cnt.interview ? 'interview' : 'all');
@@ -313,11 +346,14 @@ function renderCard(id) {
       '<button class="btn" onclick="quickResult(\'Резерв\')">В резерв</button><button class="btn danger" onclick="openResult()">Не подходит…</button></div>' +
       (b === 'done' ? '<div class="note">Сейчас статус: «' + esc(c.status) + '». Можно назначить собеседование заново или поменять статус.</div>' : '');
   }
+  var nNeed = needFor(c.code, c.role);
+  var banner = nNeed ? '<div class="card" style="background:#E8F5E9;border-color:#C8E6C9;color:#1B5E20;font-size:13px;flex-direction:row;align-items:center">🎯 В ' + esc(c.cityName) + ' нужно: ' + esc(c.role.toLowerCase()) + ' — ' + nNeed + '</div>'
+    : '<div class="card" style="background:#FFF4E5;border-color:#FFE0B2;color:#6D4C00;font-size:13px;line-height:1.45">На эту должность в ' + esc(c.cityName) + ' сейчас никого не ищем — можно отправить в резерв.</div>';
   shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div class="sub">' + esc(c.cityName) + ' · ' + esc(c.role) + '</div></div>' +
     '<div style="padding-left:4px;margin-top:4px"><div style="font-size:26px;font-weight:800">' + esc(c.name || 'Без имени') + '</div><div style="font-size:15px;color:#CFD8DC;margin-top:4px">' + esc(c.phone) + '</div></div>' +
     '<a class="call" href="' + esc(telHref(c.phone)) + '" onclick="return dial(event)">' + ICON.phone + 'Позвонить</a>' +
     '<button class="copy" onclick="copyPhone()">Скопировать номер</button></div>' +
-    '<div class="wrap"><div class="facts">' + facts.map(function (f) { return '<div class="fact"><div class="k">' + esc(f[0]) + '</div><div class="v">' + esc(f[1] || '—') + '</div></div>'; }).join('') + '</div>' +
+    '<div class="wrap">' + banner + '<div class="facts">' + facts.map(function (f) { return '<div class="fact"><div class="k">' + esc(f[0]) + '</div><div class="v">' + esc(f[1] || '—') + '</div></div>'; }).join('') + '</div>' +
     actions + '</div>');
 }
 function curCand() { return cand(cur().id); }
@@ -461,6 +497,7 @@ function renderControl(period) {
     var per = [['day', 'Сегодня'], ['week', 'Неделя'], ['month', 'Месяц']];
     shell('<div class="hdr"><div class="hrow" style="justify-content:space-between"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div><div class="sub">Режим руководителя</div><div class="ttl">Контроль</div></div></div></div>' +
       '<div class="chips">' + per.map(function (p) { return '<button class="chip' + (p[0] === period ? ' on' : '') + '" onclick="cur().period=\'' + p[0] + '\';render()">' + p[1] + '</button>'; }).join('') + '</div>' +
+      (d.needTotal != null ? '<div style="margin-top:10px;background:#C8102E;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">🎯 Нужно найти по сети</span><b style="font-size:18px">' + d.needTotal + '</b></div>' : '') +
       '<div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="stat"><b>' + d.newLeads + '</b><span>новых заявок</span></div><div class="stat"><b>' + d.processed + '</b><span>обработано</span></div>' +
       '<div class="stat"><b>' + d.interviews + '</b><span>собеседований назначено</span></div><div class="stat"><b style="color:#81C784">' + d.hired + '</b><span>принято на работу</span></div></div></div>' +
       '<div class="wrap"><div class="card"><b style="font-size:14px">Воронка</b>' + funnel.map(function (f) {
