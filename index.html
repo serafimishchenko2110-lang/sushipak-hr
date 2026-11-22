@@ -251,7 +251,7 @@ function renderHome() {
   }).join('');
   var nt = needTotal();
   shell('<div class="hdr"><div class="hrow" style="justify-content:space-between"><div><div class="sub">' + esc(greet()) + (S.me && S.me.name ? ', ' + esc(S.me.name.split(' ')[0]) : '') + '</div><div class="ttl">Кандидаты</div></div>' +
-    '<div class="hrow">' + (S.me && S.me.role !== 'руководитель' ? '<button class="iconbtn dark" aria-label="Инструкция" onclick="go({v:\'help\'})">' + ICON.help + '</button>' : '') + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
+    '<div class="hrow">' + '<button class="iconbtn dark" aria-label="Инструкция" onclick="go({v:\'help\'})">' + ICON.help + '</button>' + (S.me && (S.me.role === 'руководитель' || S.me.role === 'демо') ? '<button class="iconbtn dark" aria-label="Контроль" onclick="go({v:\'control\'})">' + ICON.chart + '</button>' : '') +
     '<button class="iconbtn dark" aria-label="Обновить" onclick="load(render)">' + ICON.refresh + '</button></div></div>' +
     '<div class="stats"><button class="stat" onclick="go({v:\'list\',mode:\'new\'})"><b>' + nNew + '</b><span>новых</span></button>' +
     '<button class="stat" onclick="go({v:\'list\',mode:\'cbToday\'})"><b style="color:#FFB74D">' + nCb + '</b><span>перезвонить сегодня</span></button>' +
