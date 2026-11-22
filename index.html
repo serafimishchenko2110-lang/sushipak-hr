@@ -61,6 +61,9 @@ button{font-family:inherit;cursor:pointer}
 .shade{position:fixed;inset:0;background:rgba(20,27,31,.55);z-index:20;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:#F4F5F7;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:18px 16px 24px 16px;max-height:92vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
 .sheet h3{margin:0;font-size:18px;font-weight:800}
+.sheet>*{flex-shrink:0}
+.sheet .btn{min-height:52px}
+.sheet .btn.primary{position:sticky;bottom:0;z-index:2;height:56px;font-size:16px;box-shadow:0 -10px 16px #F4F5F7}
 .pick{display:grid;gap:8px}
 .pick.c5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .pick.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -459,6 +462,8 @@ function saveInterview() {
 
 function openResult() {
   var sts = (S.data && S.data.statuses) || [];
+  var cc = curCand();
+  if (cc && (cc.src === 'phone' || /-P:/.test(String(cc.id)))) sts = sts.filter(function (x) { return x !== 'дубль'; }); // в листе «OLX/Телефон» такого статуса нет
   PK = { status: '' };
   sheet('<h3>Статус кандидата</h3><div class="pick c2" id="rsOpts"></div>' +
     '<label>Причина / комментарий<textarea id="rsNote" placeholder="Например: не подходит график, маленькая ставка"></textarea></label>' +
