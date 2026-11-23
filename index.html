@@ -213,7 +213,9 @@ function needFor(code, role) {
 function needCity(code) { var n = needs()[code] || {}, t = 0; for (var k in n) t += n[k] || 0; return t; }
 function needTotal() { var t = 0; for (var c in needs()) t += needCity(c); return t; }
 function cityLabel(code) { return ((S.data && S.data.cityNames) || {})[code] || code; }
-function bucket(c) { return c.status === ST.NEW ? 'new' : c.status === ST.CALLBACK ? 'callback' : c.status === ST.INTERVIEW ? 'interview' : 'done'; }
+// старая база контактов OLX: в таблице только имя и телефон, без даты и анкеты
+function isOlxBase(c) { return c.src === 'phone' && !c.created && c.status === ST.NEW; }
+function bucket(c) { return isOlxBase(c) ? 'olx' : c.status === ST.NEW ? 'new' : c.status === ST.CALLBACK ? 'callback' : c.status === ST.INTERVIEW ? 'interview' : 'done'; }
 function replaceCand(oldId, nc) { var l = list(); for (var i = 0; i < l.length; i++) if (l[i].id === oldId) { l[i] = nc; return; } l.unshift(nc); }
 
 /* ---------- навигация ---------- */
@@ -342,11 +344,11 @@ function renderList(v) {
     title = v.role; sub = v.city;
     var codeL = (base[0] && base[0].code) || '';
     if (codeL) { var nn = needFor(codeL, v.role); sub += nn ? ' · нужно ' + nn : ' · сейчас не нужен'; }
-    var cnt = { new: 0, callback: 0, interview: 0, all: base.length };
+    var cnt = { new: 0, callback: 0, interview: 0, olx: 0, all: base.length };
     base.forEach(function (c) { var b = bucket(c); if (cnt[b] !== undefined) cnt[b]++; });
     var t = v.tab || (cnt.new ? 'new' : cnt.callback ? 'callback' : cnt.interview ? 'interview' : 'all');
     v.tab = t;
-    tabs = '<div class="chips">' + [['new', 'Новые'], ['callback', 'Перезвонить'], ['interview', 'Собес'], ['all', 'Все']].map(function (x) {
+    tabs = '<div class="chips">' + [['new', 'Новые'], ['callback', 'Перезвонить'], ['interview', 'Собес'], ['olx', 'База OLX'], ['all', 'Все']].filter(function (x) { return x[0] !== 'olx' || cnt.olx; }).map(function (x) {
       return '<button class="chip' + (t === x[0] ? ' on' : '') + '" onclick="setTab(\'' + x[0] + '\')">' + x[1] + ' · ' + cnt[x[0]] + '</button>';
     }).join('') + '</div>';
     if (t !== 'all') base = base.filter(function (c) { return bucket(c) === t; });
@@ -359,7 +361,7 @@ function renderList(v) {
       '<div class="tags">' + (v.mode ? '<span class="tag">' + esc(c.cityName) + ' · ' + esc(c.role) + '</span>' : '') + (speak(c) ? '<span class="tag">' + esc(speak(c)) + '</span>' : '') +
       (plShort(c.lvl) ? '<span class="tag">' + esc(plShort(c.lvl)) + '</span>' : '') + (expShort(c.exp) ? '<span class="tag">' + esc(expShort(c.exp)) + '</span>' : '') +
       (c.age ? '<span class="tag">' + esc(c.age) + '</span>' : '') +
-      (daysAgo(c.created) > 30 ? '<span class="tag red">заявке ' + daysAgo(c.created) + ' дн.</span>' : !c.created ? '<span class="tag">дата неизвестна</span>' : '') +
+      (daysAgo(c.created) > 30 ? '<span class="tag red">заявке ' + daysAgo(c.created) + ' дн.</span>' : isOlxBase(c) ? '<span class="tag">база OLX · без анкеты</span>' : !c.created ? '<span class="tag">дата неизвестна</span>' : '') +
       (c.source !== 'Форма' ? '<span class="tag">' + esc(c.source) + '</span>' : '') +
       (c.attempts ? '<span class="tag red">не дозвон ×' + c.attempts + '</span>' : '') + (bucket(c) === 'done' ? '<span class="tag">' + esc(c.status) + '</span>' : '') + '</div></button>';
   }).join('');
@@ -373,7 +375,7 @@ function setTab(t) { cur().tab = t; render(); }
 function renderCard(id) {
   var c = cand(id);
   if (!c) { back(); return; }
-  var facts = [['Заявка', applied(c.created) + ' · ' + c.source], ['Говорить', speak(c) || (c.lang || '—')], ['Польский', c.lvl], ['Опыт', c.exp], ['Возраст', c.age], ['Статус', c.status]];
+  var facts = [['Заявка', applied(c.created) + ' · ' + c.source], ['Говорить', speak(c) || c.lang], ['Польский', c.lvl], ['Опыт', c.exp], ['Возраст', c.age], ['Статус', c.status]].filter(function (f) { return f[1]; });
   if (c.callback && bucket(c) === 'callback') facts.push(['Перезвонить', dstr(c.callback)]);
   if (c.interview && bucket(c) === 'interview') facts.push(['Собеседование', dstr(c.interview)]);
   if (c.attempts) facts.push(['Не дозвонились', c.attempts + ' раз']);
@@ -391,7 +393,7 @@ function renderCard(id) {
       (b === 'done' ? '<div class="note">Сейчас статус: «' + esc(c.status) + '». Можно назначить собеседование заново или поменять статус.</div>' : '');
   }
   var nNeed = needFor(c.code, c.role);
-  var old = daysAgo(c.created) > 30 ? '<div class="card" style="background:#FDECEA;border-color:#F5C6C2;color:#8A1C14;font-size:13px;line-height:1.45">Заявка подана ' + dfull(c.created) + ' — ' + daysAgo(c.created) + ' дн. назад. Сначала уточните, актуально ли ещё.</div>' : '';
+  var old = isOlxBase(c) ? '<div class="card" style="background:#ECEFF1;border-color:#CFD8DC;color:#37474F;font-size:13px;line-height:1.45">Контакт из базы OLX: в таблице есть только имя и телефон — анкеты, даты отклика, опыта и польского нет. Всё уточните по телефону.</div>' : daysAgo(c.created) > 30 ? '<div class="card" style="background:#FDECEA;border-color:#F5C6C2;color:#8A1C14;font-size:13px;line-height:1.45">Заявка подана ' + dfull(c.created) + ' — ' + daysAgo(c.created) + ' дн. назад. Сначала уточните, актуально ли ещё.</div>' : '';
   var banner = nNeed ? '<div class="card" style="background:#E8F5E9;border-color:#C8E6C9;color:#1B5E20;font-size:13px;flex-direction:row;align-items:center">🎯 В ' + esc(c.cityName) + ' нужно: ' + esc(c.role.toLowerCase()) + ' — ' + nNeed + '</div>'
     : '<div class="card" style="background:#FFF4E5;border-color:#FFE0B2;color:#6D4C00;font-size:13px;line-height:1.45">На эту должность в ' + esc(c.cityName) + ' сейчас никого не ищем — можно отправить в резерв.</div>';
   shell('<div class="hdr"><div class="hrow"><button class="back" aria-label="Назад" onclick="back()">' + ICON.back + '</button><div class="sub">' + esc(c.cityName) + ' · ' + esc(c.role) + '</div></div>' +
